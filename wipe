@@ -10,27 +10,26 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
-# $Id: wipe,v 1.5 2004/12/14 20:42:32 steve Exp $
+# $Id: wipe,v 1.6 2004/12/14 20:52:28 steve Exp $
 
 use strict;
 use warnings;
 
 use FileHandle;
 use DirHandle;
+use File::Basename;
+use Getopt::Std;
 
 use vars qw($recursive $debug);
 
-$debug=1;
+my %opt;
+getopts('rv', \%opt);
 
-if (@ARGV && $ARGV[0] eq "-r") {
-    shift;
-    $recursive++;
-}
+$debug=1 if ($opt{'v'});
+$recursive=1 if ($opt{'r'});
 
 if ($#ARGV==-1) {
-    print STDERR "Usage: @{[
-            substr($0, rindex($0, '/')+1)
-        ]} [-r] file [file [...]]\n";
+    print STDERR "Usage: " . basename($0) .  " [-r] file [file [...]]\n";
     exit 0;
 }
 
