@@ -10,7 +10,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
-# $Id: wipe,v 1.7 2004/12/14 21:19:11 steve Exp $
+# $Id: wipe,v 1.8 2004/12/14 22:00:33 steve Exp $
 
 use strict;
 use warnings;
@@ -37,23 +37,23 @@ if (!@ARGV) {
     exit 0;
 }
 
-for (my $n=0;$n<=@ARGV;$n++) {
-    if (lstat($ARGV[$n])) {
+for my $file (@ARGV) {
+    if (lstat($file)) {
         if (-f(_)) {
             if (-s(_)) {
-                wipe($ARGV[$n]);
+                wipe($file);
             } else {
-                unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
+                unlink($file) or warn "Couldn't unlink $file: $!\n";
             }
         } elsif ($recursive && -d(_)) {
-            recurse_into($ARGV[$n]);
+            recurse_into($file);
         } elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_)) {
-            unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
+            unlink($file) or warn "Couldn't unlink $file: $!\n";
         } else {
-            die "Don't know how to handle $ARGV[$n]!\n";
+            die "Don't know how to handle $file!\n";
         }
     } else {
-        print STDERR "$ARGV[$n] not found";
+        print STDERR "$file not found";
         print STDERR " or not a regular file" if (!$recursive);
         print STDERR ", skipping...\n";
     }
