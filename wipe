@@ -10,7 +10,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
-# $Id: wipe,v 1.4 2004/12/14 20:41:17 steve Exp $
+# $Id: wipe,v 1.5 2004/12/14 20:42:32 steve Exp $
 
 use strict;
 use warnings;
@@ -39,18 +39,18 @@ my $n;
 for ($n=0;$n<=$#ARGV;$n++) {
     if (lstat($ARGV[$n])) {
         if (-f(_)) {
-	    if (-s(_)) {
+            if (-s(_)) {
                 &wipe($ARGV[$n]);
-	    } else {
-		unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
-	    }
+            } else {
+                unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
+            }
         } elsif ($recursive && -d(_)) {
             &recurse_into($ARGV[$n]);
         } elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_)) {
-	    unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
-	} else {
-	    die "Don't know how to handle $ARGV[$n]!\n";
-	}
+            unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
+        } else {
+            die "Don't know how to handle $ARGV[$n]!\n";
+        }
     } else {
         print STDERR "$ARGV[$n] not found";
         print STDERR " or not a regular file" if (!$recursive);
@@ -65,22 +65,22 @@ sub recurse_into {
     $dh=new DirHandle $dir;
 
     foreach $file (grep(!/^\.\.?$/, $dh->read())) {
-	if (lstat("$dir/$file")) {
+        if (lstat("$dir/$file")) {
             if (-f(_)) {
-		if (-s(_)) {
+                if (-s(_)) {
                     &wipe("$dir/$file");
-		} else {
-		    unlink("$dir/$file")
-		        or warn "Couldn't unlink $dir/$file: $!\n";
-		}
+                } else {
+                    unlink("$dir/$file")
+                        or warn "Couldn't unlink $dir/$file: $!\n";
+                }
             } elsif (-d(_)) {
                 &recurse_into("$dir/$file");
             } elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_)) {
-	        unlink("$dir/$file") or warn "Couldn't unlink $dir/$file: $!\n";
-	    } else {
-	        die "Don't know how to handle $dir/$file!\n";
+                unlink("$dir/$file") or warn "Couldn't unlink $dir/$file: $!\n";
+            } else {
+                die "Don't know how to handle $dir/$file!\n";
             }
-	}
+        }
     }
 
     undef $dh;
