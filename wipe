@@ -1,0 +1,109 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use FileHandle;
+use DirHandle;
+
+my $recursive;
+
+if ($ARGV[0] eq "-r")
+{
+    shift;
+    $recursive++;
+}
+
+if ($#ARGV==-1)
+{
+    print STDERR "Usage: $0 [-r] file [file [...]]\n";
+    exit 0;
+}
+
+my $n;
+
+for ($n=0;$n<=$#ARGV;$n++)
+{
+    if (-f $ARGV[$n])
+    {
+        &wipe($ARGV[$n]);
+    }
+    elsif ($recursive && -d $ARGV[$n])
+    {
+        &recurse_into($ARGV[$n]);
+    }
+    else
+    {
+        print STDERR "$ARGV[$n] not found";
+        print STDERR " or not a regular file" if (!$recursive);
+        print STDERR ", skipping...\n";
+    }
+}
+
+sub recurse_into
+{
+    my($dir)=@_;
+    my($dh, $file);
+
+    $dh=new DirHandle $dir;
+
+    foreach $file (grep(!/^\.\.?$/, $dh->read()))
+    {
+        if (-f "$dir/$file")
+        {
+            &wipe("$dir/$file");
+        }
+        elsif (-d "$dir/$file")
+        {
+            &recurse_into("$dir/$file");
+        }
+        else
+        {
+            print STDERR "$dir/$file is weird, skipping...\n";
+        }
+    }
+
+    undef $dh;
+
+#   print STDERR "Removing directory $dir...\n";
+    rmdir $dir || print STDERR "failed to rmdir $dir: $!\n";
+}
+
+sub wipe
+{
+    my($file)=@_;
+    my($size, $m);
+
+    $size=-s $file;
+    if ($size)
+    {
+        #for ($m=0;$m<10;$m++)
+        foreach $m ("\xaa", "\x55", "\xff")
+        {
+#           print STDERR "Overwriting $file, pass ", $m+1, "...\n";
+            &clobber($file, $size, $m);
+        }
+#       print STDERR "Overwriting $file, final pass...\n";
+        &clobber($file, $size, "\0");
+    }
+#   print STDERR "Unlinking $file...\n";
+    unlink($file);
+}
+
+sub clobber
+{
+    my($file, $size, $char)=@_;
+    my($fh, $total, $foo, $block);
+
+    $fh=new FileHandle "+<$file";
+    binmode($fh);
+    select((select($fh), $|=1)[0]);
+    $total=0;
+    while ($total<$size)
+    {
+       $foo=$size-$total;
+       $block=($foo<4096 ? $foo : 4096);
+       print $fh $char x $block;
+       $total+=$block;
+    }
+    close($fh);
+}
