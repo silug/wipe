@@ -1,13 +1,25 @@
 #!/usr/bin/perl -w
+#
+# wipe - Deletes files "securely".
+#
+# Copyright (C) 1999 Steven Pritchard <steve@silug.org>
+# This program is free software; you can redistribute it
+# and/or modify it under the same terms as Perl itself.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 use strict;
 
 use FileHandle;
 use DirHandle;
 
-my $recursive;
+use vars qw($recursive $debug);
 
-if ($ARGV[0] eq "-r")
+$debug=1;
+
+if (@ARGV && $ARGV[0] eq "-r")
 {
     shift;
     $recursive++;
@@ -15,7 +27,9 @@ if ($ARGV[0] eq "-r")
 
 if ($#ARGV==-1)
 {
-    print STDERR "Usage: $0 [-r] file [file [...]]\n";
+    print STDERR "Usage: @{[
+            substr($0, rindex($0, '/')+1)
+        ]} [-r] file [file [...]]\n";
     exit 0;
 }
 
@@ -23,13 +37,31 @@ my $n;
 
 for ($n=0;$n<=$#ARGV;$n++)
 {
-    if (-f $ARGV[$n])
+    if (lstat($ARGV[$n]))
     {
-        &wipe($ARGV[$n]);
-    }
-    elsif ($recursive && -d $ARGV[$n])
-    {
-        &recurse_into($ARGV[$n]);
+        if (-f(_))
+        {
+	    if (-s(_))
+	    {
+                &wipe($ARGV[$n]);
+	    }
+	    else
+	    {
+		unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
+	    }
+        }
+        elsif ($recursive && -d(_))
+        {
+            &recurse_into($ARGV[$n]);
+        }
+	elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_))
+	{
+	    unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
+	}
+	else
+	{
+	    die "Don't know how to handle $ARGV[$n]!\n";
+	}
     }
     else
     {
@@ -48,24 +80,39 @@ sub recurse_into
 
     foreach $file (grep(!/^\.\.?$/, $dh->read()))
     {
-        if (-f "$dir/$file")
-        {
-            &wipe("$dir/$file");
-        }
-        elsif (-d "$dir/$file")
-        {
-            &recurse_into("$dir/$file");
-        }
-        else
-        {
-            print STDERR "$dir/$file is weird, skipping...\n";
-        }
+	if (lstat("$dir/$file"))
+	{
+            if (-f(_))
+            {
+		if (-s(_))
+		{
+                    &wipe("$dir/$file");
+		}
+		else
+		{
+		    unlink("$dir/$file")
+		        or warn "Couldn't unlink $dir/$file: $!\n";
+		}
+            }
+            elsif (-d(_))
+            {
+                &recurse_into("$dir/$file");
+            }
+	    elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_))
+	    {
+	        unlink("$dir/$file") or warn "Couldn't unlink $dir/$file: $!\n";
+	    }
+            else
+            {
+	        die "Don't know how to handle $dir/$file!\n";
+            }
+	}
     }
 
     undef $dh;
 
-#   print STDERR "Removing directory $dir...\n";
-    rmdir $dir || print STDERR "failed to rmdir $dir: $!\n";
+    print STDERR "Removing directory $dir...\n" if ($debug);
+    rmdir $dir || warn "Couldn't rmdir $dir: $!\n";
 }
 
 sub wipe
@@ -76,17 +123,18 @@ sub wipe
     $size=-s $file;
     if ($size)
     {
-        #for ($m=0;$m<10;$m++)
+        my $pass;
         foreach $m ("\xaa", "\x55", "\xff")
         {
-#           print STDERR "Overwriting $file, pass ", $m+1, "...\n";
+            print STDERR "Overwriting $file, pass ", ++$pass, "...\n"
+                if ($debug);
             &clobber($file, $size, $m);
         }
-#       print STDERR "Overwriting $file, final pass...\n";
+        print STDERR "Overwriting $file, final pass...\n" if ($debug);
         &clobber($file, $size, "\0");
     }
-#   print STDERR "Unlinking $file...\n";
-    unlink($file);
+    print STDERR "Unlinking $file...\n" if ($debug);
+    unlink($file) or warn "Couldn't unlink $file: $!\n";
 }
 
 sub clobber
@@ -107,3 +155,46 @@ sub clobber
     }
     close($fh);
 }
+__END__
+
+=head1 NAME
+
+wipe - delete a file (or files) securely
+
+=head1 SYNOPSIS
+
+B<wipe> [I<-r>] I<file> [I<file> [I<...>]]
+
+=head1 DESCRIPTION
+
+B<wipe> securely deletes a file by first overwriting the file with a
+pattern of 0xAA, 0x55, 0xFF, and 0x0, then unlinking the file.
+
+If the I<-r> option is supplied, B<wipe> will recurse into any
+directories specified on the command line.
+
+=head1 EXAMPLES
+
+The following example will wipe the files I<foo> and I<bar>:
+
+    wipe foo bar
+
+This example will recurse into I<baz> and wipe everything in it.  The
+effect is similar to "rm -rf baz".
+
+    wipe -r baz
+
+=head1 AUTHOR
+
+Steven Pritchard E<lt>steve@silug.orgE<gt>
+
+=head1 SEE ALSO
+
+B<rm>(1)
+
+=head1 NOTES
+
+If you want to be B<really> sure that your data won't be recovered,
+try melting the disks down.  That seems to be pretty reliable.
+
+=cut
