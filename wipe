@@ -10,7 +10,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
-# $Id: wipe,v 1.6 2004/12/14 20:52:28 steve Exp $
+# $Id: wipe,v 1.7 2004/12/14 21:19:11 steve Exp $
 
 use strict;
 use warnings;
@@ -20,6 +20,10 @@ use DirHandle;
 use File::Basename;
 use Getopt::Std;
 
+sub recurse_into($);
+sub wipe($);
+sub clobber($$$);
+
 use vars qw($recursive $debug);
 
 my %opt;
@@ -28,23 +32,21 @@ getopts('rv', \%opt);
 $debug=1 if ($opt{'v'});
 $recursive=1 if ($opt{'r'});
 
-if ($#ARGV==-1) {
+if (!@ARGV) {
     print STDERR "Usage: " . basename($0) .  " [-r] file [file [...]]\n";
     exit 0;
 }
 
-my $n;
-
-for ($n=0;$n<=$#ARGV;$n++) {
+for (my $n=0;$n<=@ARGV;$n++) {
     if (lstat($ARGV[$n])) {
         if (-f(_)) {
             if (-s(_)) {
-                &wipe($ARGV[$n]);
+                wipe($ARGV[$n]);
             } else {
                 unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
             }
         } elsif ($recursive && -d(_)) {
-            &recurse_into($ARGV[$n]);
+            recurse_into($ARGV[$n]);
         } elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_)) {
             unlink($ARGV[$n]) or warn "Couldn't unlink $ARGV[$n]: $!\n";
         } else {
@@ -57,23 +59,22 @@ for ($n=0;$n<=$#ARGV;$n++) {
     }
 }
 
-sub recurse_into {
+sub recurse_into($) {
     my($dir)=@_;
-    my($dh, $file);
 
-    $dh=new DirHandle $dir;
+    my $dh=new DirHandle $dir;
 
-    foreach $file (grep(!/^\.\.?$/, $dh->read())) {
+    for my $file (grep(!/^\.\.?$/, $dh->read())) {
         if (lstat("$dir/$file")) {
             if (-f(_)) {
                 if (-s(_)) {
-                    &wipe("$dir/$file");
+                    wipe("$dir/$file");
                 } else {
                     unlink("$dir/$file")
                         or warn "Couldn't unlink $dir/$file: $!\n";
                 }
             } elsif (-d(_)) {
-                &recurse_into("$dir/$file");
+                recurse_into("$dir/$file");
             } elsif (-l(_) || -p(_) || -S(_) || -b(_) || -c(_)) {
                 unlink("$dir/$file") or warn "Couldn't unlink $dir/$file: $!\n";
             } else {
@@ -88,7 +89,7 @@ sub recurse_into {
     rmdir $dir || warn "Couldn't rmdir $dir: $!\n";
 }
 
-sub wipe {
+sub wipe($) {
     my($file)=@_;
 
     my $size=-s $file;
@@ -97,16 +98,16 @@ sub wipe {
         for my $m ("\xaa", "\x55", "\xff") {
             print STDERR "Overwriting $file, pass ", ++$pass, "...\n"
                 if ($debug);
-            &clobber($file, $size, $m);
+            clobber($file, $size, $m);
         }
         print STDERR "Overwriting $file, final pass...\n" if ($debug);
-        &clobber($file, $size, "\0");
+        clobber($file, $size, "\0");
     }
     print STDERR "Unlinking $file...\n" if ($debug);
     unlink($file) or warn "Couldn't unlink $file: $!\n";
 }
 
-sub clobber {
+sub clobber($$$) {
     my($file, $size, $char)=@_;
     my($fh, $total, $foo, $block);
 
